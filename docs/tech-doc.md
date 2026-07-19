@@ -322,3 +322,23 @@ For the 6 inactive products, the full UI flow (Documentation and Drag & Drop fil
 ```
 
 *(Product Design Tip: This logs a high-intent B2B lead in your admin panel, allowing you to manually upsell enterprise analytical consulting contracts before you write a single line of backend production code).*
+
+---
+
+# 4. MVP Platform Foundation
+
+## Dynamic Service Catalog
+
+The ten analytics products are stored in `analytics_analysisservice` rather than hard-coded in the API. Each service defines its code, English and Persian names, active/private-beta state, result type, required mapping fields, optional mapping fields, and display order. Staff can manage availability and mapping requirements from Django Admin.
+
+Authenticated clients retrieve the catalog from `GET /api/v1/services/`.
+
+Projects retain `analysis_type` as a snapshot and reference the selected service. Private-beta submissions are stored in `analytics_waitlistlead`, including sales notes and contact time. Admin users can search and filter users, projects, services, results, and waitlist leads.
+
+## MVP OTP
+
+`apps.authentication.services.send_otp` stores the temporary fixed code `123456` for 120 seconds. The function contains a `TODO` requiring replacement with a random code and SMS provider before production.
+
+## Runtime Services
+
+Docker Compose runs Django/Gunicorn, PostgreSQL, Redis, a Celery worker, and Celery Beat. Beat executes the hourly 48-hour raw-upload purge task. Analytical Celery tasks currently create empty result records and contain a `TODO` for the data-science engine invocation.
