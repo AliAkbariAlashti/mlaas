@@ -4,14 +4,25 @@ from pathlib import Path
 import xlrd
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from openpyxl import load_workbook
 from rest_framework import status
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import GenericAPIView, ListAPIView
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from .models import AnalysisService, Project, WaitlistLead
-from .serializers import MappingSerializer, ProjectUploadSerializer, ServiceSerializer
+from .serializers import (
+    BasketResultSerializer,
+    MappingSerializer,
+    PredictiveResultSerializer,
+    ProjectStatusSerializer,
+    ProjectUploadResponseSerializer,
+    ProjectUploadSerializer,
+    RFMResultSerializer,
+    ServiceSerializer,
+    StartAnalysisResponseSerializer,
+    WaitlistResponseSerializer,
+)
 from .tasks import run_analysis_task
 
 
@@ -44,7 +55,10 @@ class ServiceListView(ListAPIView):
     serializer_class = ServiceSerializer
 
 
-class ProjectUploadView(APIView):
+class ProjectUploadView(GenericAPIView):
+    serializer_class = ProjectUploadSerializer
+
+    @extend_schema(responses={201: ProjectUploadResponseSerializer})
     def post(self, request):
         serializer = ProjectUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -60,12 +74,15 @@ class ProjectUploadView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
-class OwnedProjectView(APIView):
+class OwnedProjectView(GenericAPIView):
     def get_project(self, project_id):
         return get_object_or_404(Project.objects.select_related("service"), pk=project_id, user=self.request.user)
 
 
 class StartAnalysisView(OwnedProjectView):
+    serializer_class = MappingSerializer
+
+    @extend_schema(responses={202: StartAnalysisResponseSerializer})
     def post(self, request, project_id):
         project = self.get_project(project_id)
         if not project.service.is_active:
@@ -92,6 +109,8 @@ class StartAnalysisView(OwnedProjectView):
 
 
 class ProjectStatusView(OwnedProjectView):
+    serializer_class = ProjectStatusSerializer
+
     def get(self, request, project_id):
         project = self.get_project(project_id)
         response = {"status": project.status}
@@ -101,6 +120,8 @@ class ProjectStatusView(OwnedProjectView):
 
 
 class RFMResultView(OwnedProjectView):
+    serializer_class = RFMResultSerializer
+
     def get(self, request, project_id):
         result = self.get_project(project_id).rfm_result
         return Response({
@@ -112,11 +133,15 @@ class RFMResultView(OwnedProjectView):
 
 
 class BasketResultView(OwnedProjectView):
+    serializer_class = BasketResultSerializer
+
     def get(self, request, project_id):
         return Response({"rules": self.get_project(project_id).basket_result.rules})
 
 
 class PredictiveResultView(OwnedProjectView):
+    serializer_class = PredictiveResultSerializer
+
     def get(self, request, project_id):
         project = self.get_project(project_id)
         result = project.ml_result
@@ -126,6 +151,9 @@ class PredictiveResultView(OwnedProjectView):
 
 
 class JoinWaitlistView(OwnedProjectView):
+    serializer_class = WaitlistResponseSerializer
+
+    @extend_schema(request=None)
     def post(self, request, project_id):
         project = self.get_project(project_id)
         WaitlistLead.objects.get_or_create(project=project, defaults={"user": request.user})

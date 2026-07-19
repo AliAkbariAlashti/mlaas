@@ -1,17 +1,27 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
-from .serializers import PhoneSerializer, ProfileSerializer, VerifyOTPSerializer
+from .serializers import (
+    PhoneSerializer,
+    ProfileSerializer,
+    SendOTPResponseSerializer,
+    SuccessResponseSerializer,
+    TokenResponseSerializer,
+    VerifyOTPSerializer,
+)
 from .services import OTP_TTL_SECONDS, send_otp, verify_otp
 
 
-class SendOTPView(APIView):
+class SendOTPView(GenericAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = PhoneSerializer
 
+    @extend_schema(responses=SendOTPResponseSerializer)
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -22,9 +32,11 @@ class SendOTPView(APIView):
         })
 
 
-class VerifyOTPView(APIView):
+class VerifyOTPView(GenericAPIView):
     permission_classes = (AllowAny,)
+    serializer_class = VerifyOTPSerializer
 
+    @extend_schema(responses=TokenResponseSerializer)
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -40,7 +52,10 @@ class VerifyOTPView(APIView):
         })
 
 
-class ProfileUpdateView(APIView):
+class ProfileUpdateView(GenericAPIView):
+    serializer_class = ProfileSerializer
+
+    @extend_schema(responses=SuccessResponseSerializer)
     def put(self, request):
         serializer = ProfileSerializer(request.user, data=request.data)
         serializer.is_valid(raise_exception=True)

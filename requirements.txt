@@ -10,3 +10,4 @@ pandas>=2.3,<4
 numpy>=2.2,<3
 scikit-learn>=1.7,<2
 mlxtend>=0.23,<1
+drf-spectacular>=0.28,<1

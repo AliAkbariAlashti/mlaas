@@ -32,7 +32,7 @@ Build and start Django, PostgreSQL, Redis, Celery, and Celery Beat:
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8000/` and the admin panel at `http://localhost:8000/admin/`.
+The API is available at `http://localhost:8000/`, Swagger UI at `http://localhost:8000/api/docs/`, and the admin panel at `http://localhost:8000/admin/`.
 
 Create an admin user in another terminal:
 
@@ -96,6 +96,8 @@ All project and analytics routes require `Authorization: Bearer <access_token>`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
+| `GET` | `/api/schema/` | Download the OpenAPI schema |
+| `GET` | `/api/docs/` | Open Swagger UI |
 | `POST` | `/api/v1/auth/send-otp/` | Request OTP |
 | `POST` | `/api/v1/auth/verify-otp/` | Verify OTP and receive JWT tokens |
 | `POST` | `/api/v1/auth/token/refresh/` | Refresh an access token |

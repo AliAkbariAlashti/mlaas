@@ -41,3 +41,43 @@ class MappingSerializer(serializers.Serializer):
         if missing:
             raise serializers.ValidationError({"missing_required_fields": missing})
         return mapping
+
+
+class ProjectUploadResponseSerializer(serializers.Serializer):
+    project_id = serializers.UUIDField()
+    analysis_type = serializers.CharField()
+    detected_columns = serializers.ListField(child=serializers.CharField())
+
+
+class StartAnalysisResponseSerializer(serializers.Serializer):
+    project_id = serializers.UUIDField()
+    status = serializers.CharField()
+    message = serializers.CharField()
+
+
+class ProjectStatusSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    error = serializers.CharField(required=False, allow_null=True)
+
+
+class RFMResultSerializer(serializers.Serializer):
+    summary = serializers.JSONField()
+    chart_data = serializers.JSONField()
+    actionable_insights = serializers.JSONField()
+    download_excel_url = serializers.CharField()
+
+
+class BasketResultSerializer(serializers.Serializer):
+    rules = serializers.JSONField()
+
+
+class PredictiveResultSerializer(serializers.Serializer):
+    analysis_type = serializers.CharField()
+    summary = serializers.JSONField()
+    anomalies_list = serializers.JSONField(required=False)
+    scores = serializers.JSONField(required=False)
+
+
+class WaitlistResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    message = serializers.CharField()

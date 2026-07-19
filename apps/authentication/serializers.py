@@ -20,3 +20,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         if any(not attrs.get(field) for field in self.Meta.fields):
             raise serializers.ValidationError("All profile fields are required.")
         return attrs
+
+
+class SendOTPResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    expires_in_seconds = serializers.IntegerField()
+
+
+class TokenResponseSerializer(serializers.Serializer):
+    access_token = serializers.CharField()
+    refresh_token = serializers.CharField()
+    is_profile_complete = serializers.BooleanField()
+
+
+class SuccessResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
