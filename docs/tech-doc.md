@@ -341,4 +341,11 @@ Projects retain `analysis_type` as a snapshot and reference the selected service
 
 ## Runtime Services
 
-Docker Compose runs Django/Gunicorn, PostgreSQL, Redis, a Celery worker, and Celery Beat. Beat executes the hourly 48-hour raw-upload purge task. Analytical Celery tasks currently create empty result records and contain a `TODO` for the data-science engine invocation.
+Docker Compose runs Django/Gunicorn, PostgreSQL, Redis, a Celery worker, and Celery Beat. Beat executes the hourly 48-hour raw-upload purge task.
+
+The four active MVP services execute in Celery workers:
+
+* RFM calculates recency, frequency, monetary scores, customer segments, summary metrics, chart data, and an Excel export.
+* Market Basket applies Apriori and association-rule mining and stores the strongest single-product rules.
+* Purchase Propensity creates temporal customer features and scores future-purchase probability with logistic regression, with a deterministic statistical fallback when only one training class exists.
+* Sales Anomaly Detection applies Isolation Forest to transaction amount and time features and stores anomaly details and an Excel export.

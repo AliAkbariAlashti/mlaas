@@ -120,11 +120,9 @@ class PredictiveResultView(OwnedProjectView):
     def get(self, request, project_id):
         project = self.get_project(project_id)
         result = project.ml_result
-        return Response({
-            "analysis_type": project.analysis_type,
-            "summary": result.metrics,
-            "visualization_data": result.visualization_data,
-        })
+        payload = {"analysis_type": project.analysis_type, "summary": result.metrics}
+        payload["anomalies_list" if project.analysis_type == "ANOMALY" else "scores"] = result.visualization_data
+        return Response(payload)
 
 
 class JoinWaitlistView(OwnedProjectView):
