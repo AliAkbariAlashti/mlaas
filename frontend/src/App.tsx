@@ -1,9 +1,10 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, lazy, Suspense, useContext, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { api, User } from "./api";
-import { CustomerWorkspace } from "./dashboard/CustomerWorkspace";
-import { LandingPage } from "./site/LandingPage";
+
+const CustomerWorkspace = lazy(() => import("./dashboard/CustomerWorkspace").then(module => ({ default: module.CustomerWorkspace })));
+const LandingPage = lazy(() => import("./site/LandingPage").then(module => ({ default: module.LandingPage })));
 
 export type Lang = "en" | "fa";
 export type Theme = "light" | "dark";
@@ -71,9 +72,9 @@ export default function App() {
   }), [lang, theme, user, loading]);
 
   return <AppContext.Provider value={value}>
-    <Routes>
+    <Suspense fallback={<div className="route-loader"><span className="brand-bars"><i/><i/><i/><i/></span><p>InsightFlow</p></div>}><Routes>
       <Route path="/app/*" element={<ProtectedWorkspace />} />
       <Route path="/*" element={<LandingPage />} />
-    </Routes>
+    </Routes></Suspense>
   </AppContext.Provider>;
 }
