@@ -32,7 +32,7 @@ Build and start Django, PostgreSQL, Redis, Celery, and Celery Beat:
 docker compose up --build
 ```
 
-The API is available at `http://localhost:8000/`, Swagger UI at `http://localhost:8000/api/docs/`, and the admin panel at `http://localhost:8000/admin/`.
+The public website and customer dashboard are available at `http://localhost:5173/`. The API is available at `http://localhost:8000/`, Swagger UI at `http://localhost:8000/api/docs/`, and the admin panel at `http://localhost:8000/admin/`.
 
 Create an admin user in another terminal:
 
@@ -82,6 +82,14 @@ celery -A mlaas worker -l info
 CELERY_BROKER_URL=redis://localhost:6379/0 \
 CELERY_RESULT_BACKEND=redis://localhost:6379/1 \
 celery -A mlaas beat -l info
+```
+
+Start the React website and customer dashboard:
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
 Without PostgreSQL environment variables, local development uses SQLite. Set `OTP_CACHE_URL=redis://localhost:6379/2` for shared OTP storage across multiple web processes.

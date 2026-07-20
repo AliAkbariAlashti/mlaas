@@ -1,0 +1,88 @@
+export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
+export type Service = {
+  code: string;
+  name_en: string;
+  name_fa: string;
+  is_active: boolean;
+  result_kind: "RFM" | "BASKET" | "PREDICTIVE";
+  required_mapping_fields: string[];
+  optional_mapping_fields: string[];
+};
+
+export type Project = {
+  id: string;
+  title: string;
+  analysis_type: string;
+  service_name_en: string;
+  service_name_fa: string;
+  status: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
+  error_log?: string;
+  has_report: boolean;
+  created_at: string;
+};
+
+export type User = {
+  id: string;
+  phone_number: string;
+  company_name: string | null;
+  industry: string | null;
+  platform: string | null;
+  credit_limit: number;
+  date_joined: string;
+  is_profile_complete: boolean;
+};
+
+const tokens = {
+  get access() { return localStorage.getItem("access_token"); },
+  get refresh() { return localStorage.getItem("refresh_token"); },
+  set(access: string, refresh: string) {
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+  },
+  clear() {
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+  }
+};
+
+async function request<T>(path: string, options: RequestInit = {}, retry = true): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (!(options.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  if (tokens.access) headers.set("Authorization", `Bearer ${tokens.access}`);
+  const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (response.status === 401 && retry && tokens.refresh) {
+    const refreshResponse = await fetch(`${API_BASE}/auth/token/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh: tokens.refresh })
+    });
+    if (refreshResponse.ok) {
+      const data = await refreshResponse.json();
+      localStorage.setItem("access_token", data.access);
+      return request<T>(path, options, false);
+    }
+    tokens.clear();
+  }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail ?? data.message ?? Object.values(data).flat().join(" ") ?? "Request failed");
+  return data;
+}
+
+export const api = {
+  tokens,
+  sendOtp: (phone_number: string) => request<{ expires_in_seconds: number }>("/auth/send-otp/", { method: "POST", body: JSON.stringify({ phone_number }) }),
+  verifyOtp: (phone_number: string, otp_code: string) => request<{ access_token: string; refresh_token: string; is_profile_complete: boolean }>("/auth/verify-otp/", { method: "POST", body: JSON.stringify({ phone_number, otp_code }) }),
+  profile: () => request<User>("/user/profile/"),
+  updateProfile: (data: Pick<User, "company_name" | "industry" | "platform">) => request("/user/profile/", { method: "PUT", body: JSON.stringify(data) }),
+  services: () => request<Service[]>("/services/"),
+  dashboard: () => request<any>("/dashboard/"),
+  projects: () => request<Project[]>("/projects/"),
+  upload: (form: FormData) => request<{ project_id: string; analysis_type: string; detected_columns: string[] }>("/projects/upload/", { method: "POST", body: form }),
+  start: (id: string, mapping: Record<string, string | null>) => request(`/projects/${id}/start/`, { method: "POST", body: JSON.stringify({ mapping }) }),
+  waitlist: (id: string) => request(`/projects/${id}/join-waitlist/`, { method: "POST" }),
+  status: (id: string) => request<{ status: Project["status"]; error?: string }>(`/projects/${id}/status/`),
+  report: (id: string, type: string) => request<any>(`/projects/${id}/${type === "RFM" ? "rfm-results" : type === "MARKET_BASKET" ? "basket-results" : "predictive-results"}/`),
+  blog: () => request<any[]>("/website/blog/"),
+  contact: (data: Record<string, string>) => request("/website/contact/", { method: "POST", body: JSON.stringify(data) })
+};
