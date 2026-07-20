@@ -81,3 +81,41 @@ class PredictiveResultSerializer(serializers.Serializer):
 class WaitlistResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     message = serializers.CharField()
+
+
+class ProjectHistorySerializer(serializers.ModelSerializer):
+    service_name_en = serializers.CharField(source="service.name_en", read_only=True)
+    service_name_fa = serializers.CharField(source="service.name_fa", read_only=True)
+    has_report = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Project
+        fields = (
+            "id",
+            "title",
+            "analysis_type",
+            "service_name_en",
+            "service_name_fa",
+            "status",
+            "error_log",
+            "has_report",
+            "created_at",
+        )
+
+    def get_has_report(self, project) -> bool:
+        relations = {
+            AnalysisService.ResultKind.RFM: "rfm_result",
+            AnalysisService.ResultKind.BASKET: "basket_result",
+            AnalysisService.ResultKind.PREDICTIVE: "ml_result",
+        }
+        return hasattr(project, relations[project.service.result_kind])
+
+
+class DashboardSerializer(serializers.Serializer):
+    credits_remaining = serializers.IntegerField()
+    total_projects = serializers.IntegerField()
+    successful_projects = serializers.IntegerField()
+    processing_projects = serializers.IntegerField()
+    failed_projects = serializers.IntegerField()
+    waitlist_requests = serializers.IntegerField()
+    recent_projects = ProjectHistorySerializer(many=True)

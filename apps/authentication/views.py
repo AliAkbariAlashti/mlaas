@@ -12,6 +12,7 @@ from .serializers import (
     SendOTPResponseSerializer,
     SuccessResponseSerializer,
     TokenResponseSerializer,
+    UserDetailSerializer,
     VerifyOTPSerializer,
 )
 from .services import OTP_TTL_SECONDS, send_otp, verify_otp
@@ -61,3 +62,7 @@ class ProfileUpdateView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"status": "success"})
+
+    @extend_schema(responses=UserDetailSerializer)
+    def get(self, request):
+        return Response(UserDetailSerializer(request.user).data)

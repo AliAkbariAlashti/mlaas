@@ -8,14 +8,17 @@ from drf_spectacular.utils import extend_schema
 from openpyxl import load_workbook
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .models import AnalysisService, Project, WaitlistLead
 from .serializers import (
     BasketResultSerializer,
+    DashboardSerializer,
     MappingSerializer,
     PredictiveResultSerializer,
     ProjectStatusSerializer,
+    ProjectHistorySerializer,
     ProjectUploadResponseSerializer,
     ProjectUploadSerializer,
     RFMResultSerializer,
@@ -53,6 +56,31 @@ def extract_headers(uploaded_file) -> list[str]:
 class ServiceListView(ListAPIView):
     queryset = AnalysisService.objects.all()
     serializer_class = ServiceSerializer
+    permission_classes = (AllowAny,)
+
+
+class ProjectHistoryView(ListAPIView):
+    serializer_class = ProjectHistorySerializer
+
+    def get_queryset(self):
+        return Project.objects.filter(user=self.request.user).select_related("service")
+
+
+class DashboardView(GenericAPIView):
+    serializer_class = DashboardSerializer
+
+    def get(self, request):
+        projects = Project.objects.filter(user=request.user).select_related("service")
+        recent = projects[:5]
+        return Response({
+            "credits_remaining": request.user.credit_limit,
+            "total_projects": projects.count(),
+            "successful_projects": projects.filter(status=Project.Status.SUCCESS).count(),
+            "processing_projects": projects.filter(status=Project.Status.PROCESSING).count(),
+            "failed_projects": projects.filter(status=Project.Status.FAILED).count(),
+            "waitlist_requests": WaitlistLead.objects.filter(user=request.user).count(),
+            "recent_projects": ProjectHistorySerializer(recent, many=True).data,
+        })
 
 
 class ProjectUploadView(GenericAPIView):

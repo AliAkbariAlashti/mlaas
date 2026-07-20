@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "apps.authentication",
     "apps.analytics",
+    "apps.website",
 ]
 
 MIDDLEWARE = [

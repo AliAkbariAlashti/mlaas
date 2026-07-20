@@ -35,3 +35,21 @@ class TokenResponseSerializer(serializers.Serializer):
 
 class SuccessResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    is_profile_complete = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "phone_number",
+            "company_name",
+            "industry",
+            "platform",
+            "credit_limit",
+            "date_joined",
+            "is_profile_complete",
+        )
+        read_only_fields = ("id", "phone_number", "credit_limit", "date_joined", "is_profile_complete")
