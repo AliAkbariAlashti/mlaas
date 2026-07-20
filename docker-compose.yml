@@ -30,6 +30,7 @@ services:
       POSTGRES_USER: mlaas
       POSTGRES_PASSWORD: mlaas
       POSTGRES_HOST: db
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,web
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
       OTP_CACHE_URL: redis://redis:6379/2

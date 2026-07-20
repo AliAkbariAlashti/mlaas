@@ -84,5 +84,6 @@ export const api = {
   status: (id: string) => request<{ status: Project["status"]; error?: string }>(`/projects/${id}/status/`),
   report: (id: string, type: string) => request<any>(`/projects/${id}/${type === "RFM" ? "rfm-results" : type === "MARKET_BASKET" ? "basket-results" : "predictive-results"}/`),
   blog: () => request<any[]>("/website/blog/"),
+  blogPost: (slug: string) => request<any>(`/website/blog/${slug}/`),
   contact: (data: Record<string, string>) => request("/website/contact/", { method: "POST", body: JSON.stringify(data) })
 };
