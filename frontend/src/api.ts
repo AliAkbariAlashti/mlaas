@@ -37,6 +37,8 @@ export type NavigationItem = { id:number; title_en:string; title_fa:string; href
 export type ComponentPage = { slug:string; title_en:string; title_fa:string; description_en:string; description_fa:string; hero_media_url:string };
 export type ServiceStep = { title_en:string; title_fa:string; description_en:string; description_fa:string; image_url:string; display_order:number };
 export type ProductPage = { slug:string; code:string; is_active:boolean; doc_id:string; title_en:string; title_fa:string; description_en:string; description_fa:string; image_url:string; hero_title_en:string; hero_title_fa:string; hero_media_url:string; get_started_title_en:string; get_started_title_fa:string; steps:ServiceStep[] };
+export type DeveloperAPIKey = { id:number; name:string; prefix:string; is_active:boolean; created_at:string; last_used_at:string|null };
+export type DeveloperAPIAccess = { plan:string; status:string; monthly_request_limit:number; requests_used:number; requests_remaining:number; period_start:string; period_end:string|null; services:Array<{code:string;name_en:string;name_fa:string;is_active:boolean}>; endpoints:Array<{name:string;path_prefix:string;allow_api_keys:boolean}> };
 
 const tokens = {
   get access() { return localStorage.getItem("access_token"); },
@@ -95,5 +97,9 @@ export const api = {
   component: (slug: string) => request<ComponentPage>(`/website/components/${slug}/`),
   products: () => request<ProductPage[]>("/website/products/"),
   product: (slug: string) => request<ProductPage>(`/website/products/${slug}/`),
-  contact: (data: Record<string, string>) => request("/website/contact/", { method: "POST", body: JSON.stringify(data) })
+  contact: (data: Record<string, string>) => request("/website/contact/", { method: "POST", body: JSON.stringify(data) }),
+  developerAccess: () => request<DeveloperAPIAccess>("/developer/access/"),
+  apiKeys: () => request<DeveloperAPIKey[]>("/developer/keys/"),
+  createApiKey: (name:string) => request<DeveloperAPIKey & {secret:string}>("/developer/keys/", {method:"POST",body:JSON.stringify({name})}),
+  revokeApiKey: (id:number) => request<void>(`/developer/keys/${id}/`, {method:"DELETE"})
 };

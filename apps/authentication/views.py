@@ -45,6 +45,12 @@ class VerifyOTPView(GenericAPIView):
         if not verify_otp(data["phone_number"], data["otp_code"]):
             return Response({"detail": "Invalid or expired OTP code."}, status=status.HTTP_400_BAD_REQUEST)
         user, _ = User.objects.get_or_create(phone_number=data["phone_number"])
+        from apps.developer_api.models import APIPlan, APISubscription
+
+        if not hasattr(user, "api_subscription"):
+            trial_plan = APIPlan.objects.filter(is_active=True).order_by("id").first()
+            if trial_plan:
+                APISubscription.objects.create(user=user, plan=trial_plan)
         refresh = RefreshToken.for_user(user)
         return Response({
             "access_token": str(refresh.access_token),

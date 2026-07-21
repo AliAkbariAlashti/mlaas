@@ -29,7 +29,13 @@ class ProjectUploadSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         service = validated_data.pop("analysis_type")
-        return Project.objects.create(service=service, analysis_type=service.code, **validated_data)
+        uploaded_file = validated_data.pop("file")
+        return Project.objects.create(
+            service=service,
+            analysis_type=service.code,
+            raw_file_path=uploaded_file,
+            **validated_data,
+        )
 
 
 class MappingSerializer(serializers.Serializer):
@@ -68,6 +74,7 @@ class RFMResultSerializer(serializers.Serializer):
 
 
 class BasketResultSerializer(serializers.Serializer):
+    summary = serializers.JSONField()
     rules = serializers.JSONField()
 
 

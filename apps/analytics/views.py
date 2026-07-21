@@ -27,6 +27,7 @@ from .serializers import (
     WaitlistResponseSerializer,
 )
 from .tasks import run_analysis_task
+from apps.developer_api.models import APIKey
 
 
 def extract_headers(uploaded_file) -> list[str]:
@@ -90,6 +91,14 @@ class ProjectUploadView(GenericAPIView):
     def post(self, request):
         serializer = ProjectUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        if isinstance(request.auth, APIKey):
+            subscription = request.user.api_subscription
+            service = serializer.validated_data["analysis_type"]
+            if not subscription.plan.services.filter(pk=service.pk).exists():
+                return Response(
+                    {"detail": "This analytics service is not included in the API plan."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         try:
             detected_columns = extract_headers(serializer.validated_data["file"])
         except (UnicodeDecodeError, csv.Error, ValueError, xlrd.XLRDError) as exc:
@@ -164,7 +173,19 @@ class BasketResultView(OwnedProjectView):
     serializer_class = BasketResultSerializer
 
     def get(self, request, project_id):
-        return Response({"rules": self.get_project(project_id).basket_result.rules})
+        rules = self.get_project(project_id).basket_result.rules
+        confidence_values = [rule.get("confidence", 0) for rule in rules]
+        lift_values = [rule.get("lift", 0) for rule in rules]
+        return Response({
+            "summary": {
+                "rules_found": len(rules),
+                "strongest_lift": round(max(lift_values), 4) if lift_values else 0,
+                "average_confidence_percentage": round(
+                    sum(confidence_values) * 100 / len(confidence_values), 2
+                ) if confidence_values else 0,
+            },
+            "rules": rules,
+        })
 
 
 class PredictiveResultView(OwnedProjectView):
