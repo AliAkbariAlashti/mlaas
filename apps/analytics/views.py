@@ -116,6 +116,33 @@ class OwnedProjectView(GenericAPIView):
         return get_object_or_404(Project.objects.select_related("service"), pk=project_id, user=self.request.user)
 
 
+class ResumeProjectView(OwnedProjectView):
+    serializer_class = ProjectUploadResponseSerializer
+
+    def get(self, request, project_id):
+        project = self.get_project(project_id)
+        if project.status != Project.Status.PENDING:
+            return Response(
+                {"detail": "Only pending projects can be resumed."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if not project.raw_file_path:
+            return Response(
+                {"detail": "The uploaded source file is no longer available."},
+                status=status.HTTP_410_GONE,
+            )
+        try:
+            with project.raw_file_path.open("rb") as uploaded_file:
+                detected_columns = extract_headers(uploaded_file)
+        except (FileNotFoundError, UnicodeDecodeError, csv.Error, ValueError, xlrd.XLRDError) as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "project_id": str(project.id),
+            "analysis_type": project.analysis_type,
+            "detected_columns": detected_columns,
+        })
+
+
 class StartAnalysisView(OwnedProjectView):
     serializer_class = MappingSerializer
 

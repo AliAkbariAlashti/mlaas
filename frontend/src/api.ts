@@ -86,6 +86,7 @@ export const api = {
   dashboard: () => request<any>("/dashboard/"),
   projects: () => request<Project[]>("/projects/"),
   upload: (form: FormData) => request<{ project_id: string; analysis_type: string; detected_columns: string[] }>("/projects/upload/", { method: "POST", body: form }),
+  resume: (id: string) => request<{ project_id: string; analysis_type: string; detected_columns: string[] }>(`/projects/${id}/resume/`),
   start: (id: string, mapping: Record<string, string | null>) => request(`/projects/${id}/start/`, { method: "POST", body: JSON.stringify({ mapping }) }),
   waitlist: (id: string) => request(`/projects/${id}/join-waitlist/`, { method: "POST" }),
   status: (id: string) => request<{ status: Project["status"]; error?: string }>(`/projects/${id}/status/`),

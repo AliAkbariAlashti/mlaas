@@ -38,6 +38,10 @@ class MarketBasketFlowTests(TestCase):
         self.assertEqual(uploaded.data["detected_columns"], ["invoice", "product", "quantity"])
 
         project_id = uploaded.data["project_id"]
+        resumed = self.client.get(f"/api/v1/projects/{project_id}/resume/")
+        self.assertEqual(resumed.status_code, 200, resumed.data)
+        self.assertEqual(resumed.data["detected_columns"], ["invoice", "product", "quantity"])
+
         with self.captureOnCommitCallbacks(execute=True):
             started = self.client.post(
                 f"/api/v1/projects/{project_id}/start/",
