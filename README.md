@@ -24,6 +24,8 @@ The remaining six catalog services are available through the private-beta waitli
 
 ## Development running
 
+For a production-style Ubuntu VM deployment with Docker, automatic HTTPS, backups, and update instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ### Docker Compose
 
 Build and start Django, PostgreSQL, Redis, Celery, and Celery Beat:
