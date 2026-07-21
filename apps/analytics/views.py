@@ -3,18 +3,21 @@ from pathlib import Path
 
 import xlrd
 from django.db import transaction
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from openpyxl import load_workbook
 from rest_framework import status
-from rest_framework.generics import GenericAPIView, ListAPIView
+from rest_framework.generics import GenericAPIView, ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .models import AnalysisService, Project, WaitlistLead
+from .models import AnalysisService, Dataset, Project, RunEvent, WaitlistLead
 from .serializers import (
     BasketResultSerializer,
     DashboardSerializer,
+    DatasetCreateSerializer,
+    DatasetSerializer,
     MappingSerializer,
     PredictiveResultSerializer,
     ProjectStatusSerializer,
@@ -22,6 +25,7 @@ from .serializers import (
     ProjectUploadResponseSerializer,
     ProjectUploadSerializer,
     RFMResultSerializer,
+    RunEventSerializer,
     ServiceSerializer,
     StartAnalysisResponseSerializer,
     WaitlistResponseSerializer,
@@ -64,14 +68,52 @@ class ProjectHistoryView(ListAPIView):
     serializer_class = ProjectHistorySerializer
 
     def get_queryset(self):
-        return Project.objects.filter(user=self.request.user).select_related("service")
+        return Project.objects.filter(user=self.request.user).select_related("service", "dataset")
+
+
+class DatasetListCreateView(GenericAPIView):
+    serializer_class = DatasetSerializer
+
+    def get(self, request):
+        datasets = Dataset.objects.filter(user=request.user).annotate(runs_count=Count("runs"))
+        return Response(DatasetSerializer(datasets, many=True).data)
+
+    @extend_schema(request=DatasetCreateSerializer, responses={201: DatasetSerializer})
+    def post(self, request):
+        serializer = DatasetCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        uploaded_file = serializer.validated_data["file"]
+        try:
+            detected_columns = extract_headers(uploaded_file)
+        except (UnicodeDecodeError, csv.Error, ValueError, xlrd.XLRDError) as exc:
+            return Response({"file": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        dataset = Dataset.objects.create(
+            user=request.user,
+            name=serializer.validated_data["name"],
+            file=uploaded_file,
+            original_filename=uploaded_file.name,
+            file_type=Path(uploaded_file.name).suffix.lower().lstrip("."),
+            file_size=uploaded_file.size,
+            detected_columns=detected_columns,
+            validation_status=Dataset.ValidationStatus.VALID,
+        )
+        dataset.runs_count = 0
+        return Response(DatasetSerializer(dataset).data, status=status.HTTP_201_CREATED)
+
+
+class DatasetDetailView(RetrieveAPIView):
+    serializer_class = DatasetSerializer
+    lookup_url_kwarg = "dataset_id"
+
+    def get_queryset(self):
+        return Dataset.objects.filter(user=self.request.user).annotate(runs_count=Count("runs"))
 
 
 class DashboardView(GenericAPIView):
     serializer_class = DashboardSerializer
 
     def get(self, request):
-        projects = Project.objects.filter(user=request.user).select_related("service")
+        projects = Project.objects.filter(user=request.user).select_related("service", "dataset")
         recent = projects[:5]
         return Response({
             "credits_remaining": request.user.credit_limit,
@@ -103,6 +145,7 @@ class ProjectUploadView(GenericAPIView):
             detected_columns = extract_headers(serializer.validated_data["file"])
         except (UnicodeDecodeError, csv.Error, ValueError, xlrd.XLRDError) as exc:
             return Response({"file": [str(exc)]}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.context["detected_columns"] = detected_columns
         project = serializer.save(user=request.user)
         return Response({
             "project_id": str(project.id),
@@ -164,6 +207,8 @@ class StartAnalysisView(OwnedProjectView):
             project.data_mapping = serializer.validated_data["mapping"]
             project.status = Project.Status.PROCESSING
             project.save(update_fields=("data_mapping", "status"))
+            RunEvent.objects.create(run=project, stage=RunEvent.Stage.MAPPING, message="Input schema mapping validated.")
+            RunEvent.objects.create(run=project, stage=RunEvent.Stage.QUEUED, message="Run submitted to the execution queue.")
             transaction.on_commit(lambda: run_analysis_task.delay(str(project.id)))
         return Response({
             "project_id": str(project.id),
@@ -181,6 +226,14 @@ class ProjectStatusView(OwnedProjectView):
         if project.status == Project.Status.FAILED:
             response["error"] = project.error_log
         return Response(response)
+
+
+class RunEventListView(OwnedProjectView):
+    serializer_class = RunEventSerializer
+
+    def get(self, request, project_id):
+        project = self.get_project(project_id)
+        return Response(RunEventSerializer(project.events.all(), many=True).data)
 
 
 class RFMResultView(OwnedProjectView):

@@ -2,7 +2,7 @@ from pathlib import Path
 
 from rest_framework import serializers
 
-from .models import AnalysisService, Project
+from .models import AnalysisService, Dataset, Project, RunEvent
 
 
 class ServiceSerializer(serializers.ModelSerializer):
@@ -30,12 +30,53 @@ class ProjectUploadSerializer(serializers.Serializer):
     def create(self, validated_data):
         service = validated_data.pop("analysis_type")
         uploaded_file = validated_data.pop("file")
-        return Project.objects.create(
+        dataset = Dataset.objects.create(
+            user=validated_data["user"],
+            name=validated_data["title"],
+            file=uploaded_file,
+            original_filename=uploaded_file.name,
+            file_type=Path(uploaded_file.name).suffix.lower().lstrip("."),
+            file_size=uploaded_file.size,
+            detected_columns=self.context.get("detected_columns", []),
+            validation_status=Dataset.ValidationStatus.VALID,
+        )
+        project = Project.objects.create(
             service=service,
             analysis_type=service.code,
-            raw_file_path=uploaded_file,
+            dataset=dataset,
+            raw_file_path=dataset.file.name,
             **validated_data,
         )
+        RunEvent.objects.create(run=project, stage=RunEvent.Stage.CREATED, message="Run created from uploaded dataset.")
+        return project
+
+
+class DatasetCreateSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    name = serializers.CharField(max_length=120)
+
+    def validate_file(self, value):
+        if Path(value.name).suffix.lower() not in {".csv", ".xls", ".xlsx"}:
+            raise serializers.ValidationError("Only CSV, XLS, and XLSX files are supported.")
+        return value
+
+
+class DatasetSerializer(serializers.ModelSerializer):
+    runs_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Dataset
+        fields = (
+            "id", "name", "original_filename", "file_type", "file_size", "row_count",
+            "detected_columns", "validation_status", "validation_errors", "runs_count",
+            "created_at", "updated_at", "last_used_at",
+        )
+
+
+class RunEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RunEvent
+        fields = ("id", "stage", "message", "metadata", "created_at")
 
 
 class MappingSerializer(serializers.Serializer):
@@ -94,6 +135,8 @@ class ProjectHistorySerializer(serializers.ModelSerializer):
     service_name_en = serializers.CharField(source="service.name_en", read_only=True)
     service_name_fa = serializers.CharField(source="service.name_fa", read_only=True)
     has_report = serializers.SerializerMethodField()
+    dataset_name = serializers.CharField(source="dataset.name", read_only=True, allow_null=True)
+    duration_seconds = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Project
@@ -104,6 +147,12 @@ class ProjectHistorySerializer(serializers.ModelSerializer):
             "service_name_en",
             "service_name_fa",
             "status",
+            "dataset_name",
+            "engine_version",
+            "parameters",
+            "started_at",
+            "completed_at",
+            "duration_seconds",
             "error_log",
             "has_report",
             "created_at",

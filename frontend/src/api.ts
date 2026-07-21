@@ -17,10 +17,25 @@ export type Project = {
   service_name_en: string;
   service_name_fa: string;
   status: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED" | "WAITLISTED";
+  dataset_name: string | null;
+  engine_version: string;
+  parameters: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
   error_log?: string;
   has_report: boolean;
   created_at: string;
 };
+
+export type Dataset = {
+  id: string; name: string; original_filename: string; file_type: string; file_size: number;
+  row_count: number | null; detected_columns: string[];
+  validation_status: "PENDING" | "VALID" | "INVALID"; validation_errors: string[];
+  runs_count: number; created_at: string; updated_at: string; last_used_at: string | null;
+};
+
+export type RunEvent = { id:number; stage:string; message:string; metadata:Record<string,unknown>; created_at:string };
 
 export type User = {
   id: string;
@@ -72,7 +87,15 @@ async function request<T>(path: string, options: RequestInit = {}, retry = true)
     tokens.clear();
   }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.detail ?? data.message ?? Object.values(data).flat().join(" ") ?? "Request failed");
+  if (!response.ok) {
+    const collectMessages = (value: unknown): string[] => {
+      if (typeof value === "string") return [value];
+      if (Array.isArray(value)) return value.flatMap(collectMessages);
+      if (value && typeof value === "object") return Object.values(value).flatMap(collectMessages);
+      return [];
+    };
+    throw new Error(collectMessages(data).join(" ") || "Request failed");
+  }
   return data;
 }
 
@@ -85,6 +108,9 @@ export const api = {
   services: () => request<Service[]>("/services/"),
   dashboard: () => request<any>("/dashboard/"),
   projects: () => request<Project[]>("/projects/"),
+  datasets: () => request<Dataset[]>("/datasets/"),
+  createDataset: (form: FormData) => request<Dataset>("/datasets/", { method: "POST", body: form }),
+  runEvents: (id: string) => request<RunEvent[]>(`/projects/${id}/events/`),
   upload: (form: FormData) => request<{ project_id: string; analysis_type: string; detected_columns: string[] }>("/projects/upload/", { method: "POST", body: form }),
   resume: (id: string) => request<{ project_id: string; analysis_type: string; detected_columns: string[] }>(`/projects/${id}/resume/`),
   start: (id: string, mapping: Record<string, string | null>) => request(`/projects/${id}/start/`, { method: "POST", body: JSON.stringify({ mapping }) }),
