@@ -118,6 +118,33 @@ All project and analytics routes require `Authorization: Bearer <access_token>`.
 | `GET` | `/api/v1/projects/{id}/basket-results/` | Fetch basket rules |
 | `GET` | `/api/v1/projects/{id}/predictive-results/` | Fetch propensity or anomaly results |
 | `POST` | `/api/v1/projects/{id}/join-waitlist/` | Register a private-beta lead |
+| `GET` | `/api/v1/developer/access/` | View the current API plan, quota, services, and endpoints |
+| `GET` | `/api/v1/developer/keys/` | List the customer's API keys |
+| `POST` | `/api/v1/developer/keys/` | Create an API key; its secret is returned only once |
+| `DELETE` | `/api/v1/developer/keys/{id}/` | Revoke an API key |
+
+## Developer API access
+
+Customers authenticate to the website and dashboard with phone number and OTP. Dashboard requests continue to use JWT. For server-to-server access, customers create an API key in **Dashboard → Developer API** and send it in the request header:
+
+```bash
+curl http://localhost:8000/api/v1/projects/ \
+  -H "X-API-Key: mlaas_live_..."
+```
+
+API-key secrets are stored as SHA-256 hashes and shown only when created. Successful API-key requests are recorded and return `X-RateLimit-Limit` and `X-RateLimit-Remaining` headers.
+
+Staff can manage the following under **Django Admin → Developer API**:
+
+- endpoint prefixes that permit API-key authentication;
+- plans and monthly request limits;
+- analytics services and endpoints included in each plan;
+- customer subscriptions and their status;
+- key revocation and API usage records.
+
+Swagger UI is available at `/api/docs/` and supports the `X-API-Key` security scheme.
+
+> **TODO:** Select and integrate the payment provider in `apps/developer_api/services.py`. Until then, staff assign and manage subscriptions through Django Admin.
 
 ## Environment variables
 

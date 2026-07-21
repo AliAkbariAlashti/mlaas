@@ -6,6 +6,7 @@ import { Lang, localize, useApp } from "../App";
 import { api, Service } from "../api";
 import { Brand } from "../components/Brand";
 import { ThemeLanguageControls } from "../components/ThemeLanguageControls";
+import { translateError } from "../errors";
 
 const fallbackServices = [
   { code: "RFM", name_en: "RFM Segmentation", name_fa: "بخش‌بندی RFM", is_active: true, result_kind: "RFM", required_mapping_fields: [], optional_mapping_fields: [] },
@@ -58,7 +59,7 @@ function AuthDialog({ close }: { close: () => void }) {
       if (step === "phone") { setStep("otp"); await api.sendOtp(phone); }
       else if (step === "otp") { const result = await api.verifyOtp(phone, otp); api.tokens.set(result.access_token, result.refresh_token); if(result.is_profile_complete){await refreshUser();close();navigate("/app")}else setStep("profile"); }
       else { const form=new FormData(event.currentTarget as HTMLFormElement);await api.updateProfile({company_name:String(form.get("company_name")),industry:String(form.get("industry")),platform:String(form.get("platform"))});await refreshUser();close();navigate("/app"); }
-    } catch (reason) { setError((reason as Error).message); }
+    } catch (reason) { setError(translateError(lang, reason)); }
     finally { setBusy(false); }
   };
   return <div className="dialog-backdrop" onMouseDown={close}><div className="auth-dialog" onMouseDown={event => event.stopPropagation()} role="dialog" aria-modal="true">

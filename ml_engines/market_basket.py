@@ -25,11 +25,25 @@ def calculate_market_basket(
     basket = basket.gt(0)
     if len(basket) < 2 or basket.shape[1] < 2:
         return []
-    itemsets = apriori(basket, min_support=min_support, use_colnames=True)
-    if itemsets.empty:
+    # A fixed 1% support floor is too restrictive for real catalogs with
+    # hundreds of SKUs. Step down conservatively until useful rules appear,
+    # while keeping a 0.2% floor to avoid noisy, one-off associations.
+    support_levels = sorted({min_support, max(min_support / 2, 0.002), 0.002}, reverse=True)
+    rules = pd.DataFrame()
+    for support_level in support_levels:
+        itemsets = apriori(basket, min_support=support_level, use_colnames=True)
+        if itemsets.empty:
+            continue
+        candidates = association_rules(itemsets, metric="confidence", min_threshold=min_confidence)
+        candidates = candidates[
+            candidates["antecedents"].map(len).eq(1)
+            & candidates["consequents"].map(len).eq(1)
+        ]
+        if not candidates.empty:
+            rules = candidates
+            break
+    if rules.empty:
         return []
-    rules = association_rules(itemsets, metric="confidence", min_threshold=min_confidence)
-    rules = rules[rules["antecedents"].map(len).eq(1) & rules["consequents"].map(len).eq(1)]
     rules = rules.sort_values(["lift", "confidence"], ascending=False).head(100)
     return [{
         "antecedent": str(next(iter(row.antecedents))),

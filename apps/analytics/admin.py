@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AnalysisService, BasketResult, MLResult, Project, RFMResult, WaitlistLead
+from .models import AnalysisService, BasketResult, Dataset, MLResult, Project, RFMResult, RunEvent, WaitlistLead
 
 
 @admin.register(AnalysisService)
@@ -27,15 +27,31 @@ class MLResultInline(admin.StackedInline):
     extra = 0
 
 
+class RunEventInline(admin.TabularInline):
+    model = RunEvent
+    extra = 0
+    readonly_fields = ("stage", "message", "metadata", "created_at")
+    can_delete = False
+
+
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("title", "user", "analysis_type", "status", "created_at")
+    list_display = ("title", "user", "analysis_type", "engine_version", "status", "created_at")
     list_filter = ("status", "service", "created_at")
     search_fields = ("title", "user__phone_number", "user__company_name")
-    readonly_fields = ("id", "analysis_type", "created_at")
-    autocomplete_fields = ("user", "service")
+    readonly_fields = ("id", "analysis_type", "created_at", "started_at", "completed_at")
+    autocomplete_fields = ("user", "service", "dataset")
     date_hierarchy = "created_at"
-    inlines = (RFMResultInline, BasketResultInline, MLResultInline)
+    inlines = (RunEventInline, RFMResultInline, BasketResultInline, MLResultInline)
+
+
+@admin.register(Dataset)
+class DatasetAdmin(admin.ModelAdmin):
+    list_display = ("name", "user", "file_type", "file_size", "validation_status", "created_at")
+    list_filter = ("validation_status", "file_type", "created_at")
+    search_fields = ("name", "original_filename", "user__phone_number", "user__company_name")
+    readonly_fields = ("id", "file_size", "detected_columns", "created_at", "updated_at", "last_used_at")
+    autocomplete_fields = ("user",)
 
 
 @admin.register(WaitlistLead)

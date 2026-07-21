@@ -4,7 +4,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { api, User } from "./api";
 
 const CustomerWorkspace = lazy(() => import("./dashboard/CustomerWorkspace").then(module => ({ default: module.CustomerWorkspace })));
-const LandingPage = lazy(() => import("./site/LandingPage").then(module => ({ default: module.LandingPage })));
+const LandingPage = lazy(() => import("./site/PublicWebsite").then(module => ({ default: module.PublicWebsite })));
 
 export type Lang = "en" | "fa";
 export type Theme = "light" | "dark";

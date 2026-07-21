@@ -3,13 +3,27 @@ from pathlib import Path
 import pandas as pd
 from celery import shared_task
 from django.conf import settings
+from django.utils import timezone
+
+# Celery autodiscovers tasks.py; importing the maintenance task here registers
+# the task name used by CELERY_BEAT_SCHEDULE with every worker.
+from .cron import purge_expired_uploads  # noqa: F401
 
 from ml_engines.anomaly_detector import calculate_anomalies
 from ml_engines.market_basket import calculate_market_basket
 from ml_engines.propensity_scorer import calculate_propensity
 from ml_engines.rfm_segmenter import calculate_rfm
 
-from .models import BasketResult, MLResult, Project, RFMResult
+from .models import BasketResult, MLResult, Project, RFMResult, RunEvent
+
+
+RFM_ACTIONS = {
+    "Loyal Customers": "Protect loyalty with early access, recognition, and referral campaigns.",
+    "New Customers": "Trigger a focused second-purchase journey while the first order is still recent.",
+    "At Risk": "Launch a time-bound win-back offer and prioritize high-value customers for outreach.",
+    "Lost Customers": "Use a reactivation test with strict spend limits before excluding inactive profiles.",
+    "Potential Loyalists": "Increase purchase frequency with relevant bundles and replenishment reminders.",
+}
 
 
 def _load_frame(path: str) -> pd.DataFrame:
@@ -29,10 +43,35 @@ def run_analysis_task(self, project_id: str):
     project = Project.objects.select_related("service").get(pk=project_id)
     project.status = Project.Status.PROCESSING
     project.error_log = None
-    project.save(update_fields=("status", "error_log"))
+    project.started_at = project.started_at or timezone.now()
+    project.completed_at = None
+    project.save(update_fields=("status", "error_log", "started_at", "completed_at"))
+    RunEvent.objects.create(run=project, stage=RunEvent.Stage.LOADING, message="Loading and validating the dataset.")
     try:
         frame = _load_frame(project.raw_file_path.path)
         mapping = project.data_mapping
+        if project.dataset_id:
+            project.dataset.row_count = len(frame)
+            project.dataset.last_used_at = timezone.now()
+            project.dataset.save(update_fields=("row_count", "last_used_at", "updated_at"))
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.PREPROCESSING,
+            message="Validated the input schema and prepared source records.",
+            metadata={"rows": len(frame), "columns": len(frame.columns)},
+        )
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.FEATURE_ENGINEERING,
+            message="Prepared mapped features for the selected ML engine.",
+            metadata={"mapped_features": list(mapping)},
+        )
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.MODEL_EXECUTION,
+            message=f"Executing {project.analysis_type} engine version {project.engine_version}.",
+            metadata={"engine_version": project.engine_version},
+        )
         if project.analysis_type == "RFM":
             summary, chart_data, output = calculate_rfm(
                 frame,
@@ -41,10 +80,19 @@ def run_analysis_task(self, project_id: str):
                 invoice_id_col=mapping["invoice_id_column"],
                 amount_col=mapping.get("amount_column"),
             )
+            actionable_insights = [
+                {
+                    "segment": item["segment"],
+                    "customers": item["count"],
+                    "share_percentage": item["percentage"],
+                    "recommended_action": RFM_ACTIONS.get(item["segment"], "Review this cohort and define a targeted retention experiment."),
+                }
+                for item in sorted(chart_data, key=lambda item: item["count"], reverse=True)
+            ]
             RFMResult.objects.update_or_create(project=project, defaults={
                 "summary": summary,
                 "chart_data": chart_data,
-                "actionable_insights": [],
+                "actionable_insights": actionable_insights,
                 "result_file_path": _write_result(output, project, "rfm_out"),
             })
         elif project.analysis_type == "MARKET_BASKET":
@@ -81,10 +129,34 @@ def run_analysis_task(self, project_id: str):
             })
         else:
             raise ValueError(f"Analysis service '{project.analysis_type}' is not implemented.")
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.EVALUATING,
+            message="Validated model output and calculated report metrics.",
+        )
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.RESULT_GENERATION,
+            message="Generated the final report and persisted run outputs.",
+        )
         project.status = Project.Status.SUCCESS
-        project.save(update_fields=("status",))
+        project.completed_at = timezone.now()
+        project.save(update_fields=("status", "completed_at"))
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.COMPLETED,
+            message="Run completed successfully.",
+            metadata={"duration_seconds": project.duration_seconds},
+        )
     except Exception as exc:
         project.status = Project.Status.FAILED
         project.error_log = str(exc)
-        project.save(update_fields=("status", "error_log"))
+        project.completed_at = timezone.now()
+        project.save(update_fields=("status", "error_log", "completed_at"))
+        RunEvent.objects.create(
+            run=project,
+            stage=RunEvent.Stage.FAILED,
+            message="Run failed.",
+            metadata={"error": str(exc), "duration_seconds": project.duration_seconds},
+        )
         raise
