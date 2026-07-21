@@ -232,7 +232,24 @@ class JoinWaitlistView(OwnedProjectView):
     @extend_schema(request=None)
     def post(self, request, project_id):
         project = self.get_project(project_id)
+        if project.service.is_active:
+            return Response(
+                {"detail": "This service is already available and does not accept beta requests."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if project.status == Project.Status.WAITLISTED:
+            return Response({
+                "status": "waitlisted",
+                "message": "Your private-beta request is already registered.",
+            })
+        if project.status != Project.Status.PENDING:
+            return Response(
+                {"detail": "Only pending projects can join the private beta."},
+                status=status.HTTP_409_CONFLICT,
+            )
         WaitlistLead.objects.get_or_create(project=project, defaults={"user": request.user})
+        project.status = Project.Status.WAITLISTED
+        project.save(update_fields=("status",))
         return Response({
             "status": "waitlisted",
             "message": "Your request for this automated engine has been registered. Our accounts team will contact you shortly to run an isolated private-beta trial on your raw data.",

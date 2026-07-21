@@ -16,7 +16,7 @@ export type Project = {
   analysis_type: string;
   service_name_en: string;
   service_name_fa: string;
-  status: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED";
+  status: "PENDING" | "PROCESSING" | "SUCCESS" | "FAILED" | "WAITLISTED";
   error_log?: string;
   has_report: boolean;
   created_at: string;
