@@ -1,0 +1,99 @@
+{% load static %}
+<!doctype html>
+<html lang="en" dir="ltr" data-doc-lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0D1B2A">
+  <title>{% if selected_page %}{{ selected_page.title_en }} · {% endif %}InsightFlow Docs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'developer_api/docs.css' %}">
+</head>
+<body>
+  <div class="docs-shell">
+    <header class="docs-topbar">
+      <button class="docs-menu" type="button" aria-label="Open navigation" data-menu>☰</button>
+      <a class="docs-brand" href="/api/docs/"><span><i></i><i></i><i></i><i></i></span><strong>InsightFlow</strong><small>DOCS</small></a>
+      <div class="docs-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input type="search" data-search-input placeholder="Search documentation" data-placeholder-en="Search documentation" data-placeholder-fa="جستجو در مستندات"></div>
+      <nav class="docs-actions">
+        <a href="{{ swagger_url }}"><span data-en>API reference</span><span data-fa>مرجع API</span></a>
+        <a href="/app/developer-api"><span data-en>Dashboard</span><span data-fa>داشبورد</span></a>
+        <button type="button" data-lang-toggle><b>EN</b><i>/</i><span>FA</span></button>
+      </nav>
+    </header>
+
+    <aside class="docs-sidebar" data-sidebar>
+      <div class="docs-mobile-head"><strong>Documentation</strong><button type="button" data-menu>×</button></div>
+      <nav>
+        {% for section in documentation_sections %}
+          {% if section.visible_pages %}
+          <details open data-section>
+            <summary><span data-en>{{ section.title_en }}</span><span data-fa>{{ section.title_fa }}</span><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"></path></svg></summary>
+            <div>
+              {% for page in section.visible_pages %}
+                <a href="?page={{ page.slug }}" class="{% if selected_page.id == page.id %}active{% endif %}" data-doc-link data-search="{{ page.title_en|lower }} {{ page.title_fa }} {{ page.summary_en|lower }} {{ page.summary_fa }}">
+                  <span data-en>{{ page.title_en }}</span><span data-fa>{{ page.title_fa }}</span>
+                </a>
+              {% endfor %}
+            </div>
+          </details>
+          {% endif %}
+        {% empty %}
+          <p class="docs-nav-empty">Documentation content has not been published yet.</p>
+        {% endfor %}
+      </nav>
+      <footer><span data-en>Need more help?</span><span data-fa>به کمک بیشتری نیاز دارید؟</span><a href="/app/support"><span data-en>Contact support →</span><span data-fa>تماس با پشتیبانی ←</span></a></footer>
+    </aside>
+
+    <main class="docs-main">
+      {% if selected_page %}
+      <article>
+        <div class="docs-breadcrumb"><a href="/api/docs/"><span data-en>Docs</span><span data-fa>مستندات</span></a><b>/</b><span data-en>{{ selected_page.section.title_en }}</span><span data-fa>{{ selected_page.section.title_fa }}</span></div>
+        <header class="docs-article-header">
+          {% if selected_page.service %}<span class="docs-service-code">{{ selected_page.service.code }}</span>{% endif %}
+          <h1 data-en>{{ selected_page.title_en }}</h1><h1 data-fa>{{ selected_page.title_fa }}</h1>
+          <p data-en>{{ selected_page.summary_en }}</p><p data-fa>{{ selected_page.summary_fa }}</p>
+          <div><span data-en>Updated {{ selected_page.updated_at|date:"M j, Y" }}</span><span data-fa>آخرین به‌روزرسانی {{ selected_page.updated_at|date:"Y/m/d" }}</span><a href="{{ swagger_url }}"><span data-en>Open interactive API reference</span><span data-fa>مشاهده مرجع تعاملی API</span></a></div>
+        </header>
+
+        {% for block in selected_page.blocks.all %}
+        <section class="docs-block docs-block-{{ block.kind|lower }}" id="section-{{ block.id }}">
+          {% if block.heading_en or block.heading_fa %}<h2 data-en>{{ block.heading_en }}</h2><h2 data-fa>{{ block.heading_fa }}</h2>{% endif %}
+          {% if block.kind == "CALLOUT" %}
+            <div class="docs-callout"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg><p data-en>{{ block.content_en|linebreaksbr }}</p><p data-fa>{{ block.content_fa|linebreaksbr }}</p></div>
+          {% elif block.kind == "STEPS" %}
+            <ol class="docs-steps" data-en data-lines>{{ block.content_en }}</ol><ol class="docs-steps" data-fa data-lines>{{ block.content_fa }}</ol>
+          {% else %}
+            {% if block.content_en %}<div class="docs-copy" data-en>{{ block.content_en|linebreaksbr }}</div>{% endif %}
+            {% if block.content_fa %}<div class="docs-copy" data-fa>{{ block.content_fa|linebreaksbr }}</div>{% endif %}
+          {% endif %}
+          {% if block.code %}<div class="docs-code"><div><span>{{ block.code_language|default:"text" }}</span><button type="button" data-copy><span data-en>Copy</span><span data-fa>کپی</span></button></div><pre><code>{{ block.code }}</code></pre></div>{% endif %}
+        </section>
+        {% empty %}
+          <div class="docs-empty"><h2>Article in progress</h2><p>Add content blocks from the Django admin.</p></div>
+        {% endfor %}
+
+        <footer class="docs-article-footer"><span><span data-en>Was this page useful?</span><span data-fa>آیا این صفحه مفید بود؟</span></span><div><button type="button">Yes</button><button type="button">No</button></div></footer>
+      </article>
+      <aside class="docs-toc"><strong><span data-en>On this page</span><span data-fa>در این صفحه</span></strong>{% for block in selected_page.blocks.all %}{% if block.heading_en %}<a href="#section-{{ block.id }}"><span data-en>{{ block.heading_en }}</span><span data-fa>{{ block.heading_fa }}</span></a>{% endif %}{% endfor %}</aside>
+      {% else %}<div class="docs-empty"><h1>Documentation is being prepared</h1><p>Publish a documentation page from the Django admin to get started.</p></div>{% endif %}
+    </main>
+  </div>
+  <div class="docs-overlay" data-overlay></div>
+  <script>
+    (() => {
+      const root=document.documentElement;
+      const saved=new URLSearchParams(location.search).get('lang')||localStorage.getItem('docs_lang')||localStorage.getItem('lang')||'en';
+      const applyLanguage=(lang)=>{root.dataset.docLang=lang;root.lang=lang;root.dir=lang==='fa'?'rtl':'ltr';localStorage.setItem('docs_lang',lang);document.querySelector('[data-lang-toggle] b').classList.toggle('active',lang==='en');document.querySelector('[data-lang-toggle] span').classList.toggle('active',lang==='fa');const input=document.querySelector('[data-search-input]');input.placeholder=input.dataset[lang==='fa'?'placeholderFa':'placeholderEn'];};
+      applyLanguage(saved);
+      document.querySelector('[data-lang-toggle]').addEventListener('click',()=>applyLanguage(root.dataset.docLang==='en'?'fa':'en'));
+      document.querySelectorAll('[data-lines]').forEach(list=>{const lines=list.textContent.trim().split('\n').map(line=>line.trim()).filter(Boolean);list.innerHTML=lines.map(line=>`<li>${line}</li>`).join('');});
+      document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{await navigator.clipboard.writeText(button.closest('.docs-code').querySelector('code').textContent);button.classList.add('copied');setTimeout(()=>button.classList.remove('copied'),1200);}));
+      const sidebar=document.querySelector('[data-sidebar]'),overlay=document.querySelector('[data-overlay]');const close=()=>{sidebar.classList.remove('open');overlay.classList.remove('open')};document.querySelectorAll('[data-menu]').forEach(button=>button.addEventListener('click',()=>{sidebar.classList.toggle('open');overlay.classList.toggle('open')}));overlay.addEventListener('click',close);
+      document.querySelector('[data-search-input]').addEventListener('input',event=>{const query=event.target.value.trim().toLowerCase();document.querySelectorAll('[data-doc-link]').forEach(link=>link.hidden=query&&!link.dataset.search.includes(query));document.querySelectorAll('[data-section]').forEach(section=>{const visible=[...section.querySelectorAll('[data-doc-link]')].some(link=>!link.hidden);section.hidden=!visible;});});
+    })();
+  </script>
+</body>
+</html>

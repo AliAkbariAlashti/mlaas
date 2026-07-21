@@ -114,3 +114,73 @@ class APIUsage(models.Model):
     class Meta:
         ordering = ("-created_at",)
         indexes = [models.Index(fields=("api_key", "created_at"))]
+
+
+class DocumentationSection(models.Model):
+    title_en = models.CharField(max_length=120)
+    title_fa = models.CharField(max_length=120)
+    slug = models.SlugField(max_length=120, unique=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("display_order", "id")
+
+    def __str__(self):
+        return self.title_en
+
+
+class DocumentationPage(models.Model):
+    section = models.ForeignKey(
+        DocumentationSection, on_delete=models.CASCADE, related_name="pages"
+    )
+    service = models.ForeignKey(
+        AnalysisService,
+        on_delete=models.SET_NULL,
+        related_name="documentation_pages",
+        null=True,
+        blank=True,
+    )
+    title_en = models.CharField(max_length=180)
+    title_fa = models.CharField(max_length=180)
+    slug = models.SlugField(max_length=180, unique=True)
+    summary_en = models.TextField(blank=True)
+    summary_fa = models.TextField(blank=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("display_order", "id")
+
+    def __str__(self):
+        return self.title_en
+
+
+class DocumentationBlock(models.Model):
+    class Kind(models.TextChoices):
+        TEXT = "TEXT", "Text"
+        STEPS = "STEPS", "Numbered steps"
+        CODE = "CODE", "Code example"
+        SCHEMA = "SCHEMA", "CSV schema"
+        REPORT = "REPORT", "Report explanation"
+        CALLOUT = "CALLOUT", "Callout"
+
+    page = models.ForeignKey(
+        DocumentationPage, on_delete=models.CASCADE, related_name="blocks"
+    )
+    kind = models.CharField(max_length=12, choices=Kind.choices, default=Kind.TEXT)
+    heading_en = models.CharField(max_length=180, blank=True)
+    heading_fa = models.CharField(max_length=180, blank=True)
+    content_en = models.TextField(blank=True)
+    content_fa = models.TextField(blank=True)
+    code = models.TextField(blank=True)
+    code_language = models.CharField(max_length=30, blank=True)
+    display_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("display_order", "id")
+
+    def __str__(self):
+        return self.heading_en or f"{self.get_kind_display()} block"

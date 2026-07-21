@@ -9,6 +9,8 @@ from apps.developer_api.models import (
     APIPlan,
     APISubscription,
     APIUsage,
+    DocumentationPage,
+    DocumentationSection,
 )
 
 
@@ -82,3 +84,19 @@ class APIKeyManagementTests(APITestCase):
         )
         self.assertEqual(revoked.status_code, 204)
         self.assertFalse(APIKey.objects.get(pk=created.data["id"]).is_active)
+
+
+class DocumentationTests(APITestCase):
+    def test_public_docs_render_seeded_bilingual_service_content(self):
+        response = self.client.get(reverse("developer-documentation"), {"page": "rfm-segmentation"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "RFM Segmentation")
+        self.assertContains(response, "بخش‌بندی RFM")
+        self.assertContains(response, "What the report shows")
+        self.assertContains(response, "گزارش چه چیزی نشان می‌دهد")
+        self.assertContains(response, "customer_id,invoice_date,invoice_id,total_amount")
+
+    def test_documentation_hierarchy_is_admin_managed(self):
+        self.assertGreaterEqual(DocumentationSection.objects.filter(is_active=True).count(), 5)
+        self.assertEqual(DocumentationPage.objects.filter(service__isnull=False, is_active=True).count(), 10)

@@ -1,4 +1,6 @@
 from django.utils import timezone
+from django.db.models import Prefetch
+from django.views.generic import TemplateView
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.generics import GenericAPIView, ListCreateAPIView
@@ -6,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import APIKey, APIUsage
+from .models import APIKey, APIUsage, DocumentationBlock, DocumentationPage, DocumentationSection
 from .serializers import (
     APIAccessSerializer,
     APIKeyCreatedSerializer,
@@ -82,3 +84,27 @@ class APIAccessView(GenericAPIView):
                 ),
             }
         )
+
+
+class DocumentationView(TemplateView):
+    template_name = "developer_api/docs.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        pages = DocumentationPage.objects.filter(is_active=True).select_related(
+            "section", "service"
+        ).prefetch_related(
+            Prefetch("blocks", queryset=DocumentationBlock.objects.filter(is_active=True))
+        )
+        sections = DocumentationSection.objects.filter(is_active=True).prefetch_related(
+            Prefetch("pages", queryset=pages, to_attr="visible_pages")
+        )
+        page_slug = self.request.GET.get("page")
+        selected_page = pages.filter(slug=page_slug).first() if page_slug else pages.first()
+        context.update({
+            "documentation_sections": sections,
+            "selected_page": selected_page,
+            "swagger_url": "/api/reference/",
+            "schema_url": "/api/schema/",
+        })
+        return context
