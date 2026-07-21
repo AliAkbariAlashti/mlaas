@@ -33,6 +33,11 @@ export type User = {
   is_profile_complete: boolean;
 };
 
+export type NavigationItem = { id:number; title_en:string; title_fa:string; href:string; children:NavigationItem[] };
+export type ComponentPage = { slug:string; title_en:string; title_fa:string; description_en:string; description_fa:string; hero_media_url:string };
+export type ServiceStep = { title_en:string; title_fa:string; description_en:string; description_fa:string; image_url:string; display_order:number };
+export type ProductPage = { slug:string; code:string; is_active:boolean; doc_id:string; title_en:string; title_fa:string; description_en:string; description_fa:string; image_url:string; hero_title_en:string; hero_title_fa:string; hero_media_url:string; get_started_title_en:string; get_started_title_fa:string; steps:ServiceStep[] };
+
 const tokens = {
   get access() { return localStorage.getItem("access_token"); },
   get refresh() { return localStorage.getItem("refresh_token"); },
@@ -85,5 +90,10 @@ export const api = {
   report: (id: string, type: string) => request<any>(`/projects/${id}/${type === "RFM" ? "rfm-results" : type === "MARKET_BASKET" ? "basket-results" : "predictive-results"}/`),
   blog: () => request<any[]>("/website/blog/"),
   blogPost: (slug: string) => request<any>(`/website/blog/${slug}/`),
+  navigation: () => request<NavigationItem[]>("/website/navigation/"),
+  components: () => request<ComponentPage[]>("/website/components/"),
+  component: (slug: string) => request<ComponentPage>(`/website/components/${slug}/`),
+  products: () => request<ProductPage[]>("/website/products/"),
+  product: (slug: string) => request<ProductPage>(`/website/products/${slug}/`),
   contact: (data: Record<string, string>) => request("/website/contact/", { method: "POST", body: JSON.stringify(data) })
 };
