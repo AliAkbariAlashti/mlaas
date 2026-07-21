@@ -33,6 +33,16 @@ const serviceDetails: Record<string,{description:[string,string];outcome:[string
   PRICE_OPTIMIZATION:{description:["Model price sensitivity and margin opportunities.","حساسیت قیمت و فرصت‌های حاشیه سود را مدل‌سازی کنید."],outcome:["Recommended price ranges and impact","بازه قیمت پیشنهادی و اثر آن"],icon:Target}
 };
 const chartColors=["#415A77","#778DA9","#1B263B","#A8B4C2","#61758C","#91A0B0"];
+const segmentNamesFa:Record<string,string>={"Loyal Customers":"مشتریان وفادار","New Customers":"مشتریان جدید","At Risk":"در معرض ریزش","Lost Customers":"مشتریان ازدست‌رفته","Potential Loyalists":"وفاداران بالقوه"};
+const recommendationActionsFa:Record<string,string>={
+  "Protect loyalty with early access, recognition, and referral campaigns.":"با دسترسی زودهنگام، قدردانی و کمپین‌های معرفی، وفاداری این مشتریان را حفظ کنید.",
+  "Trigger a focused second-purchase journey while the first order is still recent.":"تا زمانی که خرید اول تازه است، یک مسیر هدفمند برای خرید دوم اجرا کنید.",
+  "Launch a time-bound win-back offer and prioritize high-value customers for outreach.":"یک پیشنهاد بازگشت زمان‌دار اجرا کنید و تماس با مشتریان باارزش را در اولویت قرار دهید.",
+  "Use a reactivation test with strict spend limits before excluding inactive profiles.":"پیش از کنارگذاشتن مشتریان غیرفعال، یک آزمایش فعال‌سازی مجدد با سقف هزینه مشخص اجرا کنید.",
+  "Increase purchase frequency with relevant bundles and replenishment reminders.":"با بسته‌های مرتبط و یادآوری خرید مجدد، دفعات خرید را افزایش دهید.",
+  "Review this cohort and define a targeted retention experiment.":"این گروه را بررسی کنید و یک آزمایش هدفمند برای نگهداشت تعریف کنید."
+};
+const insightFieldNames:Record<string,[string,string]>={segment:["Segment","بخش مشتری"],customers:["Customers","تعداد مشتریان"],share_percentage:["Share percentage","سهم درصدی"],recommended_action:["Recommended action","اقدام پیشنهادی"]};
 const mappingLabels: Record<string, [string,string]> = {
   customer_id_column:["Customer ID column","ستون شناسه مشتری"], date_column:["Date column","ستون تاریخ"],
   invoice_id_column:["Invoice ID column","ستون شناسه فاکتور"], amount_column:["Amount column","ستون مبلغ"],
@@ -142,6 +152,15 @@ function exportRows(rows:Record<string,unknown>[],name:string){
   if(!rows.length)return;const columns=Object.keys(rows[0]);const escape=(value:unknown)=>`"${String(value??"").replaceAll('"','""')}"`;const csv=[columns.map(escape).join(","),...rows.map(row=>columns.map(column=>escape(row[column])).join(","))].join("\n");const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));const link=document.createElement("a");link.href=url;link.download=`${name.toLowerCase()}-report.csv`;link.click();URL.revokeObjectURL(url);
 }
 
+function formatInsight(lang:"en"|"fa",key:string,value:unknown){
+  const label=localize(lang,...(insightFieldNames[key]??[key.replaceAll("_"," "),key.replaceAll("_"," ")]));
+  let rendered=String(value??"—");
+  if(lang==="fa"&&key==="segment")rendered=segmentNamesFa[rendered]??rendered;
+  if(lang==="fa"&&key==="recommended_action")rendered=recommendationActionsFa[rendered]??rendered;
+  if(typeof value==="number")rendered=value.toLocaleString(lang==="fa"?"fa-IR":"en-US");
+  return `${label}: ${rendered}`;
+}
+
 function Report() {
   const {id="",type=""}=useParams();const {lang}=useApp();const [report,setReport]=useState<any>();const [error,setError]=useState("");const [query,setQuery]=useState("");
   useEffect(()=>{api.report(id,type).then(setReport).catch(reason=>setError(reason.message))},[id,type]);
@@ -159,7 +178,7 @@ function Report() {
     <div className="report-metrics">{Object.entries(report.summary??{}).filter(([key])=>!key.includes("path")).map(([key,value])=><div key={key}><span>{key.replaceAll("_"," ")}</span><strong>{value===null?"—":typeof value==="number"?value.toLocaleString(lang==="fa"?"fa-IR":"en-US"):String(value)}</strong></div>)}</div>
     <div className="report-dashboard-grid"><section className="workspace-panel report-chart"><div className="panel-heading"><div><h2>{localize(lang,type==="RFM"?"Customer segment mix":type==="MARKET_BASKET"?"Strongest product relationships":type==="PROPENSITY"?"Top purchase propensity scores":"Flagged transaction amounts",type==="RFM"?"ترکیب بخش‌های مشتری":type==="MARKET_BASKET"?"قوی‌ترین ارتباط محصولات":type==="PROPENSITY"?"بالاترین امتیاز احتمال خرید":"مبالغ تراکنش علامت‌گذاری‌شده")}</h2><p>{localize(lang,"Built from the completed analysis output","برگرفته از خروجی تحلیل تکمیل‌شده")}</p></div></div><ResultChart type={type} rows={rows}/></section>
       <aside className="report-summary-panel"><Lightbulb/><h2>{localize(lang,"How to use this report","نحوه استفاده از این گزارش")}</h2><p>{localize(lang,...(serviceDetails[type]?.outcome??["Review the ranked results and export the data for your team.","نتایج رتبه‌بندی‌شده را بررسی و برای تیم خود خروجی بگیرید."]))}</p><div><span>{localize(lang,...reportVolume.label as [string,string])}</span><strong>{Number(reportVolume.value).toLocaleString(lang==="fa"?"fa-IR":"en-US")}</strong></div><Link to={`/app/run/${type}`} className="button button-solid">{localize(lang,"Run again","اجرای مجدد")}<RotateCcw/></Link></aside></div>
-    {insights.length>0&&<section className="workspace-panel insight-list"><div className="panel-heading"><div><h2>{localize(lang,"Recommended actions","اقدامات پیشنهادی")}</h2><p>{localize(lang,"Turn analytical findings into the next business action.","یافته‌های تحلیلی را به اقدام بعدی کسب‌وکار تبدیل کنید.")}</p></div></div>{insights.map((insight,index)=><div key={index}><span>{String(index+1).padStart(2,"0")}</span><p>{typeof insight==="string"?insight:Object.entries(insight).map(([key,value])=>`${key.replaceAll("_"," ")}: ${value}`).join(" · ")}</p></div>)}</section>}
+    {insights.length>0&&<section className="workspace-panel insight-list"><div className="panel-heading"><div><h2>{localize(lang,"Recommended actions","اقدامات پیشنهادی")}</h2><p>{localize(lang,"Turn analytical findings into the next business action.","یافته‌های تحلیلی را به اقدام بعدی کسب‌وکار تبدیل کنید.")}</p></div></div>{insights.map((insight,index)=><div key={index}><span>{(index+1).toLocaleString(lang==="fa"?"fa-IR":"en-US",{minimumIntegerDigits:2})}</span><p>{typeof insight==="string"?(lang==="fa"?recommendationActionsFa[insight]??insight:insight):Object.entries(insight).map(([key,value])=>formatInsight(lang,key,value)).join(" · ")}</p></div>)}</section>}
     <section className="workspace-panel report-output"><div className="panel-heading"><div><h2>{localize(lang,"Detailed output","خروجی تفصیلی")}</h2><p>{localize(lang,"Search, review, and export every returned row.","همه ردیف‌ها را جستجو، بررسی و خروجی بگیرید.")}</p></div>{rows.length>0&&<label className="report-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={localize(lang,"Search result rows","جستجوی ردیف‌ها")} /></label>}</div>{filteredRows.length?<div className="report-table"><table><thead><tr>{columns.map(column=><th key={column}>{column.replaceAll("_"," ")}</th>)}</tr></thead><tbody>{filteredRows.map((row,index)=><tr key={index}>{columns.map(column=><td key={column}>{String(row[column]??"—")}</td>)}</tr>)}</tbody></table></div>:<div className="workspace-empty"><FileBarChart/><strong>{localize(lang,query?"No matching rows":"No detailed rows",query?"ردیف منطبق وجود ندارد":"ردیف تفصیلی وجود ندارد")}</strong></div>}</section>
   </>;
 }
